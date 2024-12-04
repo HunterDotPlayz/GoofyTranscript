@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang = "en">
+<head>
+    <meta charset = "UTF-8">
+    <meta name = "viewport" content = "width=device-width, initial-scale=1.0">
+    <title>GoofyTranscript</title>
+</head>
+<body>
+
+    <div class = "back-content">
+        <div class = "main-content">
+            <h6 class = "tip">Tip: Speak fast to dumb the transcript :()</h6>
+            <audio class = "playback" controls></audio>
+            <button class = "rec-button">
+                <img src = "https://icon-library.com/images/record-button-icon/record-button-icon-8.jpg" width = "50" height = "50" alt = "Record">
+            </button>
+            <button class = "extract-file-button">
+                <img src = "https://www.svgrepo.com/show/374674/folder.svg" width = "45" height = "50" alt = "Extract File">
+            </button>
+            <input type = "file" class = "file-input" accept = "audio/*" style = "display: none;">
+            <div class = "divider"></div>
+            <div contenteditable = "true" class = "transcript"></div>
+            <input type = "text" class = "hidden-input">
+        </div>
+    </div>
+
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            margin: 0;
+        }
+
+        .back-content {
+            height: 600px;
+            width: 300px;
+            border: 2px solid grey;
+            background-color: #e1e1e1;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-content {
+            height: 600px;
+            width: 300px;
+            border: 2px solid grey;
+            background-color: #e1e1e1;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .rec-button {
+            border: none;
+            background-color: #f38a8e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 250px;
+            border-radius: 10px;
+            transform: scale(1.0);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .rec-button:hover {
+            transform: scale(0.9);
+        }
+
+        .rec-button.active {
+            transform: scale(1.1);
+            border: solid rgb(237, 71, 71), 5px;
+        }
+
+        .playback {
+            transform: scale(0.85);
+        }
+
+        .extract-file-button {
+            border: none;
+            border-radius: 50px;
+            transform: scale(1.0);
+            transition: transform 0.2s ease-in-out;
+            background-color: rgb(255, 255, 255);
+            width: 250px;
+            border-radius: 10px;
+        }
+
+        .extract-file-button:hover {
+            transform: scale(0.9);
+        }
+
+        .extract-file-button:active {
+            transform: scale(1.1);
+        }
+
+        .transcript {
+            width: 240px;
+            height: 220px;
+            border-radius: 5px;
+            border: none;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: block;
+            text-align: center;
+            min-height: 40px;
+            overflow-y: auto;
+        }
+
+        .hidden-input {
+            visibility: hidden;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .divider {
+            width: 260px;
+            height: 2px;
+            background-color: rgb(81, 81, 81);
+            border-radius: 1px;
+        }
+
+        .tip {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            color: grey;
+        }
+
+    </style>
+
+    <script>
+    const recButton = document.querySelector('.rec-button');
+    const audioElement = document.querySelector('.playback');
+    const extractButton = document.querySelector('.extract-file-button');
+    const fileInput = document.querySelector('.file-input');
+    const textBox = document.querySelector(".transcript");
+    const hiddenInput = document.querySelector(".hidden-input");
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let recognition; // Speech Recognition instance
+    let isRecording = false;
+
+    // Initialize SpeechRecognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = true; // Continuous listening
+        recognition.interimResults = true; // Show results as the user speaks
+        recognition.lang = 'en-US'; // Set language (adjust as needed)
+
+        recognition.onresult = (event) => {
+            const results = Array.from(event.results);
+            const transcript = results.map(result => result[0].transcript).join(' '); // Collect the transcript
+            textBox.innerText = transcript; // Update the contenteditable div
+            hiddenInput.value = transcript; // Update hidden input
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+        };
+    } else {
+        alert("Speech Recognition is not supported in this browser.");
+    }
+
+    // Start recording function
+    async function startRecording() {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioURL = URL.createObjectURL(audioBlob);
+            audioElement.src = audioURL;
+            audioChunks = [];
+        };
+
+        mediaRecorder.start();
+        console.log('Recording started...');
+    }
+
+    recButton.addEventListener('click', () => {
+        if (!isRecording) {
+            recButton.classList.add('active');
+            startRecording();
+            if (recognition) recognition.start(); // Start voice recognition
+            isRecording = true;
+        } else {
+            recButton.classList.remove('active');
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (recognition) recognition.stop(); // Stop voice recognition
+            console.log('Recording and transcription stopped.');
+            isRecording = false;
+        }
+    });
+
+    // Open file picker when extract button is clicked
+    extractButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Play selected audio file
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const fileURL = URL.createObjectURL(file);
+            audioElement.src = fileURL;
+        }
+    });
+
+    // Sync content between contenteditable and hidden input
+    textBox.addEventListener("input", () => {
+        hiddenInput.value = textBox.innerText; // Update hidden input value
+    });
+
+    // Optional: Handle form submission
+    document.body.addEventListener("submit", (e) => {
+        e.preventDefault();
+        alert(hiddenInput.value); // Show the input value
+    });
+
+        // Dumb down the transcript (e.g., remove filler words, punctuation)
+        function dumbDownTranscript(transcript) {
+        // Remove filler words (e.g., "um", "ah")
+        const fillerWords = ["um", "ah", "like", "you know", "basically", "actually"];
+        fillerWords.forEach(word => {
+            transcript = transcript.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+        });
+
+        // Remove all punctuation
+        transcript = transcript.replace(/[^\w\s]/g, '');
+
+        // Simplify any complex phrases (example)
+        transcript = transcript.replace(/\bgoing to\b/g, "gonna");
+
+        return transcript;
+    }
+
+    </script>
+    
+</body>
+</html>
